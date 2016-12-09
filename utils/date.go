@@ -36,3 +36,12 @@ func GetTimeParse(times string) int64 {
 	parse, _ := time.ParseInLocation("2006-01-02 15:04", times, loc)
 	return parse.Unix()
 }
+
+func GetDateParse(dates string) int64 {
+	if dates == "" {
+		return 0
+	}
+	loc, _ := time.LoadLocation("Local")
+	parse, _ := time.ParseInLocation("2006-01-02", dates, loc)
+	return parse.Unix()
+}
