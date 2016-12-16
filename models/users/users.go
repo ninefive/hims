@@ -245,3 +245,157 @@ func UpdatePassword(id int64, oldPwd, newPwd string) error {
 		}
 	}
 }
+
+//添加個人信息
+func AddProfile(updPro UsersProfile) error {
+	o := orm.NewOrm()
+	pro := new(UsersProfile)
+
+	pro.Id = updPro.Id
+	pro.Realname = updPro.Realname
+	pro.Sex = updPro.Sex
+	pro.Birth = updPro.Birth
+	pro.Email = updPro.Email
+	pro.Webchat = updPro.Webchat
+	pro.Qq = updPro.Qq
+	pro.Phone = updPro.Phone
+	pro.Tel = updPro.Tel
+	pro.Address = updPro.Address
+	pro.Emercontact = updPro.Emercontact
+	pro.Emerphone = updPro.Emerphone
+	pro.Departid = updPro.Departid
+	pro.Positionid = updPro.Positionid
+	pro.Lognum = 1
+	pro.Ip = updPro.Ip
+	pro.Lasted = time.Now().Unix()
+
+	_, err := o.Insert(pro)
+	return err
+}
+
+//添加用戶
+func AddUserProfile(updUser Users, updProd UsersProfile) error {
+	o := orm.NewOrm()
+	o.Using("default")
+
+	user := new(Users)
+	pro := new(UsersProfile)
+
+	pro.Id = updProd.Id
+	pro.Realname = updProd.Realname
+	pro.Sex = updProd.Sex
+	pro.Birth = updProd.Birth
+	pro.Email = updProd.Email
+	pro.Webchat = updProd.Webchat
+	pro.Qq = updProd.Qq
+	pro.Phone = updProd.Phone
+	pro.Tel = updProd.Tel
+	pro.Address = updProd.Address
+	pro.Emercontact = updProd.Emercontact
+	pro.Emerphone = updProd.Emerphone
+	pro.Departid = updProd.Departid
+	pro.Positionid = updProd.Positionid
+	pro.Lognum = 1
+	pro.Ip = updProd.Ip
+	pro.Lasted = time.Now().Unix()
+	o.Insert(pro)
+
+	user.Id = updUser.Id
+	user.Profile = pro
+	user.Username = updUser.Username
+	user.Password = utils.Md5(updUser.Password)
+	user.Avatar = utils.GetAvatar("")
+	user.Status = 1
+	_, err := o.Insert(user)
+	return err
+}
+
+//用戶列表
+func ListUser(condArr map[string]string, page int, offset int) (num int64, err error, user []Users) {
+	o := orm.NewOrm()
+	o.Using("default")
+	qs := o.QueryTable(models.TableName("users"))
+	cond := orm.NewCondition()
+	if condArr["keywords"] != "" {
+		cond = cond.AndCond(cond.And("username__icontains", condArr["keywords"]).Or("profile__realname__icontains", condArr["keywords"]))
+	}
+	if condArr["status"] != "" {
+		cond = cond.And("status", condArr["status"])
+	}
+	qs = qs.SetCond(cond)
+	if page < 1 {
+		page = 1
+	}
+	if offset < 1 {
+		offset, _ = beego.AppConfig.Int("pageoffset")
+	}
+	start := (page - 1) * offset
+	qs = qs.RelatedSel()
+
+	var users []Users
+	num, err1 := qs.Limit(offset, start).All(&users)
+	return num, err1, users
+}
+
+//統計數量
+func CountUser(condArr map[string]string) int64 {
+	o := orm.NewOrm()
+	qs := o.QueryTable(models.TableName("users"))
+	qs = qs.RelatedSel()
+	cond := orm.NewCondition()
+	if condArr["keywords"] != "" {
+		cond = cond.AndCond(cond.And("username__icontains", condArr["keywords"]).Or("profile__realname__icontains", condArr["keywords"]))
+	}
+	if condArr["status"] != "" {
+		cond = cond.And("status", condArr["status"])
+	}
+	num, _ := qs.SetCond(cond).Count()
+	return num
+}
+
+//更改用戶狀態
+func ChangeUserStatus(id int64, status int) error {
+	o := orm.NewOrm()
+
+	user := Users{Id: id}
+	err := o.Read(&user, "userid")
+	if err != nil {
+		return err
+	} else {
+		user.Status = status
+		_, err := o.Update(&user)
+		return err
+	}
+}
+
+//更改用戶頭像
+func ChangeUserAvatar(id int64, avatar string) error {
+	o := orm.NewOrm()
+	user := Users{Id: id}
+	err := o.Read(&user, "userid")
+	if err != nil {
+		return err
+	} else {
+		user.Avatar = avatar
+		_, err := o.Update(&user)
+		return err
+	}
+}
+
+type UsersFind struct {
+	Userid   int64
+	Realname string
+	Avatar   string
+	Position string
+}
+
+//顯示所有用戶
+func ListUserFind() (num int64, err error, user []UsersFind) {
+	var users []UsersFind
+	qb, _ := orm.NewQueryBuilder("mysql")
+	qb.Select("upr.userid", "upr.realname", "p.name AS position", "u.avatar").From("hims_users AS u").LeftJoin("hims_users_profile AS upr").On("upr.userid=u.userid").LeftJoin("hims_positions AS p").On("p.positionid=upr.positionid").OrderBy("p.name").Desc()
+	sql := qb.String()
+	o := orm.NewOrm()
+	nums, err := o.Raw(sql).QueryRows(&users)
+	return nums, err, users
+}
