@@ -52,3 +52,86 @@ func GetPositionsName(id int64) string {
 	}
 	return name
 }
+
+func UpdatePositions(id int64, updPos Positions) error {
+	var pos Positions
+	o := orm.NewOrm()
+	pos = Positions{Id: id}
+
+	pos.Name = updPos.Name
+	pos.Desc = updPos.Desc
+	_, err := o.Update(&pos, "name", "desc")
+	return err
+}
+
+func AddPositions(addPos Positions) error {
+	o := orm.NewOrm()
+	o.Using("default")
+	pos := new(Positions)
+
+	pos.Id = addPos.Id
+	pos.Name = addPos.Name
+	pos.Desc = addPos.Desc
+	pos.Status = 1
+	_, err := o.Insert(pos)
+	return err
+}
+
+func ListPositions(condArr map[string]string, page int, offset int) (num int64, err error, pos []Positions) {
+	o := orm.NewOrm()
+	o.Using("default")
+	qs := o.QueryTable(models.TableName("positions"))
+	cond := orm.NewCondition()
+
+	if condArr["keywords"] != "" {
+		cond = cond.AndCond(cond.And("name__icontains", condArr["keywords"]))
+	}
+	if condArr["status"] != "" {
+		cond = cond.And("status", condArr["status"])
+	}
+
+	qs = qs.SetCond(cond)
+	if page < 1 {
+		page = 1
+	}
+	if offset < 1 {
+		offset, _ = beego.AppConfig.Int("pageoffset")
+	}
+	start := (page - 1) * offset
+
+	var deps []Positions
+	num, err1 := qs.Limit(offset, start).All(&deps)
+	return num, err1, deps
+}
+
+//統計數量
+func CountPositions(condArr map[string]string) int64 {
+	o := orm.NewOrm()
+	qs := o.QueryTable(models.TableName("positions"))
+	cond := orm.NewCondition()
+	if condArr["keywords"] != "" {
+		cond = cond.AndCond(cond.And("name__icontains", condArr["keywords"]))
+	}
+	if condArr["status"] != "" {
+		cond = cond.And("status", condArr["status"])
+	}
+
+	num, _ := qs.SetCond(cond).Count()
+	return num
+}
+
+//更改狀態
+func ChangePositionStatus(id int64, status int) error {
+	o := orm.NewOrm()
+
+	pos := Positions{Id: id}
+	err := o.Read(&pos, "positionid")
+
+	if err != nil {
+		return err
+	} else {
+		pos.Status = status
+		_, err := o.Update(&pos)
+		return err
+	}
+}
